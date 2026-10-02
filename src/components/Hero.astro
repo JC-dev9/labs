@@ -1,0 +1,66 @@
+---
+import Mark from "./Mark.astro";
+import { SOURCES } from "../data/sources";
+
+const first = SOURCES[0];
+const WORKS_WITH = ["Textos de referência", "Literatura", "Manuais internos", "Formação", "Procedimentos", "Regulamentos"];
+---
+<section class="hero" data-hero>
+  <!-- WebGL light: only mounted on capable desktops; the CSS gradient is the fallback -->
+  <canvas class="hero-gl" data-hero-gl aria-hidden="true"></canvas>
+
+  <div class="container hero-grid">
+    <div class="hero-copy">
+      <h1 data-hero-title>O conhecimento muda. <span class="gold">A tecnologia é a mesma.</span></h1>
+      <p class="hero-lead" data-hero-in>A BeLight transforma conhecimento complexo em experiências que respondem, ensinam e se adaptam a cada pessoa.</p>
+      <div class="actions" data-hero-in>
+        <a href="#contacto" class="btn btn-gold" data-magnetic>Pedir uma demonstração</a>
+        <a href="https://belight-bible.vercel.app/" target="_blank" rel="noopener" class="btn btn-outline" data-magnetic>Experimentar o BeLight Bible <span class="arr" aria-hidden="true">↗</span></a>
+      </div>
+    </div>
+
+    <div class="demo" data-demo data-hero-demo>
+      <div class="demo-bar">
+        <div class="tabs" role="tablist" aria-label="Exemplos">
+          <span class="tab-pill" data-tab-pill aria-hidden="true"></span>
+          {SOURCES.map((s, i) => (
+            <button type="button" role="tab" aria-selected={i === 0 ? "true" : "false"} data-tab={i}>
+              {s.label}<span class="bar" aria-hidden="true"></span>
+            </button>
+          ))}
+        </div>
+        <span class="demo-ref" data-ref>{first.ref}</span>
+      </div>
+      <div class="demo-source">
+        <span class="eyebrow">Fonte</span>
+        <p class="demo-excerpt swap" data-excerpt>{first.excerpt}</p>
+      </div>
+      <div class="demo-chat" aria-live="polite">
+        <div class="bubble-q swap" data-q>{first.q}</div>
+        <div class="answer">
+          <div class="avatar"><Mark width={12} height={14} /></div>
+          <div class="answer-body swap">
+            <span class="answer-text" data-a>{first.a}</span>
+            <span class="answer-ref">↳ <span data-ref>{first.ref}</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="demo-input" aria-hidden="true"><span>Pergunte qualquer coisa…</span><span class="send">↑</span></div>
+    </div>
+  </div>
+
+  <div class="container works-with-wrap">
+    <div class="works-with" data-hero-in>
+      <span class="ww-label">Funciona com</span>
+      <div class="marquee" data-marquee>
+        <div class="marquee-track" data-marquee-track>
+          {WORKS_WITH.map(w => <span>{w}</span>)}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <a href="#problema" class="scroll-cue" data-scroll-cue data-hero-in aria-label="Descobrir mais">
+    <span>Descobrir</span><i aria-hidden="true"></i>
+  </a>
+</section>

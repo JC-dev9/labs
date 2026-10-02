@@ -1,0 +1,35 @@
+---
+import "@fontsource-variable/geist/wght.css";
+import "@fontsource-variable/geist-mono/wght.css";
+import "../styles/global.css";
+import "../styles/motion.css";
+import geistLatin from "@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url";
+
+interface Props {
+  title: string;
+  description: string;
+}
+const { title, description } = Astro.props;
+---
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{title}</title>
+  <meta name="description" content={description}>
+  <meta name="theme-color" content="#0A0B0D">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href={geistLatin} as="font" type="font/woff2" crossorigin>
+  <!-- Motion states only apply when JS runs; failsafe reveals everything after 3s -->
+  <script is:inline>
+    document.documentElement.classList.add("js");
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("rm");
+    setTimeout(() => document.documentElement.classList.add("ready"), 3000);
+  </script>
+</head>
+<body>
+  <div class="cursor" data-cursor aria-hidden="true"></div>
+  <slot />
+</body>
+</html>

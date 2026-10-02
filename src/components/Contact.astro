@@ -1,0 +1,27 @@
+---
+import Mark from "./Mark.astro";
+---
+<section id="contacto" class="contact" data-contact>
+  <div class="contact-glow" data-contact-glow aria-hidden="true"></div>
+  <div class="container section-pad contact-grid">
+    <div class="contact-copy">
+      <h2 data-split>Vamos experimentar com o <span class="gold">seu</span> conhecimento.</h2>
+      <p data-reveal>Conte-nos que conhecimento a sua equipa usa todos os dias. Mostramos como a BeLight o põe a funcionar.</p>
+    </div>
+    <div class="form-card" data-reveal data-form-card>
+      <form class="form" data-contact-form>
+        <label class="field">Nome<input name="nome" required autocomplete="name"></label>
+        <label class="field">Email<input name="email" type="email" required autocomplete="email"></label>
+        <label class="field">Organização<input name="organizacao" autocomplete="organization"></label>
+        <!-- Honeypot: invisible to people; if a bot fills it, nothing is sent -->
+        <input type="text" name="_gotcha" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button type="submit" class="submit" data-submit>Enviar</button>
+        <p class="form-error" data-form-error role="alert" hidden>Não foi possível enviar. Tente novamente ou escreva-nos diretamente.</p>
+      </form>
+      <div class="thanks" data-thanks hidden>
+        <Mark width={28} height={32} class="mark-rise" />
+        <span>Obrigado. Entraremos em contacto.</span>
+      </div>
+    </div>
+  </div>
+</section>

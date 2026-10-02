@@ -1,0 +1,350 @@
+/* Motion support styles. GSAP drives the choreography (src/scripts/motion.ts);
+   this file holds initial states, CSS-only loops, and the hover layer. */
+
+/* Hero items start hidden only when JS runs; html.ready (or the 3s
+   failsafe in Base.astro) reveals them if anything goes wrong. */
+.js:not(.ready):not(.rm) [data-hero-title],
+.js:not(.ready):not(.rm) [data-hero-in],
+.js:not(.ready):not(.rm) [data-hero-demo],
+.js:not(.ready):not(.rm) .site-header .mark-sun,
+.js:not(.ready):not(.rm) .site-header .brand-word,
+.js:not(.ready):not(.rm) .site-header .nav > * { visibility: hidden; }
+
+/* SplitText masks: give descenders (ç, g, p) room inside the clip */
+.ln-mask { padding-bottom: .12em; margin-bottom: -.12em; }
+
+/* Logo mark */
+.mark-sun { transform-box: fill-box; }
+.mark-rise .mark-sun { animation: sun-rise 1s cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes sun-rise { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* Header: depth once scrolled, slides away while reading down */
+.site-header { transition: transform .5s cubic-bezier(.16, 1, .3, 1), background-color .3s, box-shadow .3s; }
+.site-header.scrolled { background: rgba(10, 11, 13, .9); box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
+.site-header.hide { transform: translateY(-100%); }
+
+/* Hero WebGL light; fades in over the CSS gradient after its first frame */
+.hero { position: relative; isolation: isolate; overflow: clip; }
+.hero-gl {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  pointer-events: none;
+}
+.hero-gl.is-on { opacity: 1; }
+.hero-copy { will-change: transform; }
+
+/* Demo card */
+.demo { position: relative; }
+.demo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(420px circle at var(--mx, 70%) var(--my, 0%), rgba(244, 201, 93, .06), transparent 60%);
+}
+.tabs button { position: relative; overflow: hidden; transition: background-color .3s, color .3s; }
+.tabs button[aria-selected="true"] { background: var(--paper); color: var(--ink); }
+.tabs button .bar {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.tabs button.run .bar { animation: tab-progress 4.5s linear both; }
+@keyframes tab-progress { to { transform: scaleX(1); } }
+.swap { transition: opacity .35s cubic-bezier(.2, .7, .2, 1), transform .35s cubic-bezier(.2, .7, .2, 1); }
+.swap.out { opacity: 0; transform: translateY(6px); }
+.answer-text.typing-now::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -2px;
+  background: var(--gold);
+  animation: caret .8s steps(1) infinite;
+}
+@keyframes caret { 50% { opacity: 0; } }
+
+/* Stats: the top rule draws in */
+.stat { position: relative; border-top-color: transparent !important; }
+.stat::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--ink);
+  transform-origin: left;
+  transition: transform 1.4s cubic-bezier(.16, 1, .3, 1) .2s;
+}
+.stat.accent::before { background: var(--gold); }
+.js .stat:not(.is-in)::before { transform: scaleX(0); }
+.stat-num { font-variant-numeric: tabular-nums; }
+
+/* "Como funciona" */
+.how-progress { height: 1px; background: var(--line); margin-top: -24px; overflow: hidden; }
+.how-progress span { display: block; height: 100%; background: var(--gold); transform-origin: left; transform: scaleX(0); }
+.step-visual { position: relative; overflow: hidden; }
+.tree { transform-origin: top; }
+/* While pinned, keep the section centred in the viewport */
+@media (min-width: 1024px) and (min-height: 720px) {
+  .js:not(.rm) .how { min-height: 100vh; justify-content: center; }
+}
+.file.add { animation: pulse 2.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { border-color: var(--line-4); } 50% { border-color: rgba(244, 201, 93, .6); } }
+.typing {
+  position: absolute;
+  left: 22px;
+  top: calc(50% - 6px);
+  display: flex;
+  gap: 4px;
+  padding: 12px;
+  background: var(--line);
+  border-radius: 10px 10px 10px 2px;
+  visibility: hidden;
+}
+.typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--muted-2); animation: dot 1.1s infinite; }
+.typing i:nth-child(2) { animation-delay: .15s; }
+.typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes dot { 0%, 80%, 100% { transform: translateY(0); opacity: .35; } 40% { transform: translateY(-3px); opacity: 1; } }
+
+/* Case */
+.showcase { perspective: 1600px; }
+.phone { will-change: transform; }
+
+/* Org rows: gold line sweeps under the hovered row */
+.use { position: relative; }
+.use::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform .7s cubic-bezier(.16, 1, .3, 1);
+}
+
+.thanks:not([hidden]) { animation: rise .8s cubic-bezier(.16, 1, .3, 1) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(20px); } }
+
+/* Hover layer: real pointers only, never on touch */
+@media (hover: hover) and (pointer: fine) {
+  .btn-gold { position: relative; overflow: hidden; }
+  .btn-gold::after {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent);
+    transform: translateX(-120%) skewX(-20deg);
+  }
+  .btn-gold:hover::after { animation: shine .8s cubic-bezier(.2, .7, .2, 1); }
+  @keyframes shine { to { transform: translateX(260%) skewX(-20deg); } }
+  .btn, .submit, .nav a { transition: background-color .25s, color .25s, border-color .25s; }
+  .use:hover::after { transform: scaleX(1); }
+  .use .use-title { transition: transform .5s cubic-bezier(.16, 1, .3, 1); }
+  .use:hover .use-title { transform: translateX(8px); }
+  .step-visual { transition: border-color .3s; }
+  .step:hover .step-visual { border-color: var(--line-4); }
+}
+
+/* Phones: one-line sticky header, no backdrop blur (costly on mobile GPUs) */
+@media (max-width: 640px) {
+  .nav a:not(.nav-cta) { display: none; }
+  .site-header { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(10, 11, 13, .96); }
+}
+
+/* ==========================================================
+   Micro-interactions
+   ========================================================== */
+
+/* Demo tabs: a pill slides to the active tab */
+.tabs.has-pill { position: relative; }
+.tab-pill {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 0;
+  border-radius: 4px;
+  background: var(--paper);
+  transition: transform .55s cubic-bezier(.16, 1, .3, 1), width .55s cubic-bezier(.16, 1, .3, 1);
+}
+.tabs.has-pill button,
+.tabs.has-pill button[aria-selected="true"] { background: transparent; z-index: 1; }
+
+/* Press feedback everywhere, touch included (scale is independent of GSAP's transform) */
+.btn, .submit, .nav a.nav-cta, .tabs button { transition: scale .18s ease, background-color .25s, color .25s, border-color .25s; }
+.btn:active, .submit:active, .nav a.nav-cta:active, .tabs button:active { scale: .96; }
+
+/* Outbound arrows nudge toward where they go */
+.arr { display: inline-block; transition: transform .45s cubic-bezier(.16, 1, .3, 1); }
+
+/* Nav: underline grows in, and stays on the section you're reading */
+.nav a:not(.nav-cta) { position: relative; }
+.nav a:not(.nav-cta)::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 1px;
+  background: var(--gold);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform .5s cubic-bezier(.16, 1, .3, 1);
+}
+.nav a.is-active { color: var(--paper); }
+.nav a.is-active::after { transform: scaleX(1); transform-origin: left; }
+
+/* Form: the label lights up with its field */
+.field { transition: color .25s; }
+.field:focus-within { color: var(--gold); }
+.field input { transition: border-color .25s, box-shadow .25s; }
+.field input:focus { box-shadow: 0 0 0 4px rgba(244, 201, 93, .12); }
+.form-card.invite { animation: invite 1.4s cubic-bezier(.16, 1, .3, 1); }
+@keyframes invite {
+  0% { box-shadow: 0 0 0 0 rgba(244, 201, 93, .45); border-color: var(--gold); }
+  100% { box-shadow: 0 0 0 28px rgba(244, 201, 93, 0); border-color: var(--line-3); }
+}
+
+/* Hero scroll cue: a drop of light falls down the line */
+.scroll-cue {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--muted-4);
+}
+.scroll-cue:hover { color: var(--paper); }
+.scroll-cue i { position: relative; width: 1px; height: 30px; background: var(--line-3); overflow: hidden; }
+.scroll-cue i::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 12px;
+  background: var(--gold);
+  animation: drop 1.8s cubic-bezier(.65, 0, .35, 1) infinite;
+}
+@keyframes drop { from { transform: translateY(-12px); } to { transform: translateY(30px); } }
+@media (max-width: 1023px), (max-height: 699px) { .scroll-cue { display: none; } }
+@media (min-width: 1024px) and (min-height: 700px) { .works-with-wrap { padding-bottom: calc(clamp(48px, 6vw, 72px) + 40px); } }
+
+/* "Funciona com": wraps by default; becomes a marquee once JS drives it */
+.works-with { flex-wrap: nowrap; }
+.ww-label { flex: none; }
+.marquee { min-width: 0; flex: 1; }
+.marquee-track { display: flex; flex-wrap: wrap; gap: 12px 28px; }
+.marquee.is-looping {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.marquee.is-looping .marquee-track { flex-wrap: nowrap; gap: 0; width: max-content; }
+.marquee.is-looping .marquee-track > * { padding-right: 28px; white-space: nowrap; }
+.marquee.is-looping .marquee-track > *::after { content: "·"; padding-left: 28px; color: var(--line-4); }
+@media (max-width: 640px) {
+  .works-with { flex-wrap: wrap; }
+  .ww-label { flex-basis: 100%; }
+  .marquee { flex-basis: 100%; }
+}
+
+/* Cursor ring (desktop, full motion only) */
+.cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border: 1px solid rgba(244, 201, 93, .55);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .3s, width .35s cubic-bezier(.16, 1, .3, 1), height .35s cubic-bezier(.16, 1, .3, 1),
+    margin .35s cubic-bezier(.16, 1, .3, 1), background-color .3s, scale .15s;
+}
+.cursor.on { opacity: 1; }
+.cursor.is-link { width: 60px; height: 60px; margin: -30px 0 0 -30px; background: rgba(244, 201, 93, .1); border-color: var(--gold); }
+.cursor.is-text { opacity: 0; }
+.cursor.is-down { scale: .8; }
+.lite .cursor, .rm .cursor, html:not(.js) .cursor { display: none; }
+
+/* Contact: animated glow replaces the static gradient */
+.contact { position: relative; isolation: isolate; overflow: clip; background: var(--ink); }
+.contact-glow {
+  position: absolute;
+  z-index: -1;
+  left: -20vmax;
+  bottom: -40vmax;
+  width: 80vmax;
+  height: 80vmax;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(244, 201, 93, .18), rgba(244, 201, 93, 0));
+  pointer-events: none;
+}
+
+/* Footer wordmark */
+.footer-word {
+  overflow: hidden;
+  padding: 0 var(--gutter);
+  font-size: clamp(88px, 24vw, 360px);
+  font-weight: 600;
+  line-height: .8;
+  letter-spacing: -.07em;
+  text-align: center;
+  color: #15171B;
+  padding-bottom: .1em;
+  user-select: none;
+}
+.footer-word > div { display: inline-block; }
+
+/* Anchored sections land below the sticky header */
+section[id] { scroll-margin-top: 72px; }
+
+/* Light sections expand like a screen (desktop, full motion) */
+[data-expand] { will-change: clip-path; }
+.lite [data-expand], .rm [data-expand] { will-change: auto; }
+
+@media (hover: hover) and (pointer: fine) {
+  a:hover .arr { transform: translate(3px, -3px); }
+  .nav a:not(.nav-cta):hover::after { transform: scaleX(1); transform-origin: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No looping or travelling motion… */
+  *, *::before, *::after { animation: none !important; }
+  .swap, .tab-pill, .site-header, .stat::before, .use::after, .use .use-title,
+  .arr, .cursor, .hero-gl { transition-duration: .01ms !important; }
+  .typing { display: none; }
+  .how-progress span { transform: none; }
+  /* …but hover/press feedback (colour, the nav underline, button press) stays */
+  .nav a:not(.nav-cta)::after { transition-duration: .35s; }
+}

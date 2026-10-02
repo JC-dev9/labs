@@ -1,0 +1,32 @@
+---
+import Base from "../layouts/Base.astro";
+import Header from "../components/Header.astro";
+import Hero from "../components/Hero.astro";
+import Problem from "../components/Problem.astro";
+import HowItWorks from "../components/HowItWorks.astro";
+import CaseStudy from "../components/CaseStudy.astro";
+import Organizations from "../components/Organizations.astro";
+import Contact from "../components/Contact.astro";
+import Footer from "../components/Footer.astro";
+---
+<Base
+  title="BeLight Labs"
+  description="A BeLight transforma conhecimento complexo em experiências que respondem, ensinam e se adaptam a cada pessoa."
+>
+  <Header />
+  <main id="topo">
+    <Hero />
+    <Problem />
+    <HowItWorks />
+    <CaseStudy />
+    <Organizations />
+    <Contact />
+  </main>
+  <Footer />
+</Base>
+
+<script>
+  import "../scripts/demo";
+  import "../scripts/form";
+  import "../scripts/motion";
+</script>

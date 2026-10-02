@@ -1,0 +1,24 @@
+---
+const USES = [
+  { title: "Conhecimento interno", quote: "“Como faço este procedimento?”", text: "Resposta imediata, com base nos seus documentos." },
+  { title: "Integração", quote: "“Acabei de entrar na empresa.”", text: "Um percurso adaptado à função e ao ritmo." },
+  { title: "Formação", quote: "“Preciso de aprender isto.”", text: "O mesmo conteúdo, explicado ao nível de cada pessoa." },
+  { title: "Conhecimento institucional", quote: "“Só duas pessoas sabem isto.”", text: "Acessível a quem precisa, com acesso controlado." },
+];
+---
+<section id="organizacoes" class="light" data-expand>
+  <div class="container section-pad org-grid">
+    <div class="org-intro">
+      <h2 class="h2" data-split>Para organizações</h2>
+      <p data-reveal>A mesma tecnologia, aplicada ao conhecimento que a sua equipa usa todos os dias.</p>
+    </div>
+    <div class="uses" data-stagger>
+      {USES.map(u => (
+        <div class="use">
+          <span class="use-title">{u.title}</span>
+          <div class="use-body"><span class="use-quote">{u.quote}</span><span class="use-text">{u.text}</span></div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
