@@ -3,7 +3,7 @@ import { SOURCES } from "../data/sources";
 // Hero demo: rotates every 4.5s until the visitor picks a tab. The answer
 // types itself out; rotation pauses while off-screen or in a background tab.
 const ROTATE_MS = 4500;
-const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const reduceMotion = document.documentElement.classList.contains("rm"); // see Base.astro
 
 const demo = document.querySelector<HTMLElement>("[data-demo]");
 if (demo) {

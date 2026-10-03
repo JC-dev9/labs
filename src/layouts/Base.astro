@@ -24,11 +24,38 @@ const { title, description } = Astro.props;
   <!-- Motion states only apply when JS runs; failsafe reveals everything after 3s -->
   <script is:inline>
     document.documentElement.classList.add("js");
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) document.documentElement.classList.add("rm");
+    // Owner's call: full motion for everyone. Set to true to honour the OS
+    // "reduce motion" setting again (calm mode: fades only, no intro).
+    const RESPECT_REDUCED_MOTION = false;
+    if (RESPECT_REDUCED_MOTION && matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.documentElement.classList.add("rm");
+    }
+    // Logo intro plays once per session; decided before first paint so it never flashes
+    try {
+      if (document.documentElement.classList.contains("rm") || sessionStorage.getItem("bl-intro")) {
+        document.documentElement.classList.add("no-intro");
+      }
+    } catch { document.documentElement.classList.add("no-intro"); }
     setTimeout(() => document.documentElement.classList.add("ready"), 3000);
   </script>
 </head>
 <body>
+  <div class="intro" data-intro aria-hidden="true">
+    <div class="intro-stage">
+      <svg class="intro-mark" data-intro-mark viewBox="0 0 42 48" width="84" height="96">
+        <defs>
+          <radialGradient id="intro-sun-glow">
+            <stop offset="0" stop-color="#F4C95D" stop-opacity=".55" />
+            <stop offset="1" stop-color="#F4C95D" stop-opacity="0" />
+          </radialGradient>
+        </defs>
+        <circle class="intro-glow" data-intro-glow cx="26" cy="32" r="30" fill="url(#intro-sun-glow)" />
+        <rect class="intro-pillar" data-intro-pillar x="4" y="4" width="10" height="40" fill="#F6F5F2" />
+        <circle class="intro-sun" data-intro-sun cx="26" cy="32" r="12" fill="#F4C95D" />
+      </svg>
+      <div class="intro-word" data-intro-word><b>BeLight</b><small>LABS</small></div>
+    </div>
+  </div>
   <div class="cursor" data-cursor aria-hidden="true"></div>
   <slot />
 </body>

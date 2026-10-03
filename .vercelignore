@@ -1,0 +1,4 @@
+legacy-static
+node_modules
+dist
+.astro

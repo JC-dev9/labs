@@ -6,54 +6,149 @@ import Lenis from "lenis";
 import "lenis/dist/lenis.css";
 
 gsap.registerPlugin(ScrollTrigger, SplitText, ScrollToPlugin);
+ScrollTrigger.config({ ignoreMobileResize: true });
 
 /* ---------- Motion budget ----------
-   full   : capable desktop with a mouse — everything
-   lite   : touch devices or weak hardware — no cursor, no clip-path scenes
-   gentle : prefers-reduced-motion — opacity fades only, no movement */
+   full   : desktop with a mouse — everything, plus Lenis smooth scrolling
+   lite   : touch or weak hardware — native scroll, no cursor, no clip-path scenes
+   gentle : html.rm (only if RESPECT_REDUCED_MOTION is on in Base.astro) — fades only
+
+   Performance rules: boot does the minimum (intro + hero). Everything below the
+   fold is prepared when it approaches the viewport, or in small idle chunks, so
+   the main thread never blocks for long on a slow phone. */
 const root = document.documentElement;
 const nav = navigator as Navigator & { connection?: { saveData?: boolean }; deviceMemory?: number };
-const gentle = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const gentle = root.classList.contains("rm");
 const finePointer = matchMedia("(hover: hover) and (pointer: fine)").matches;
 const lowEnd = (nav.hardwareConcurrency ?? 8) < 4 || (nav.deviceMemory ?? 8) < 4 || !!nav.connection?.saveData;
 const lite = !finePointer || lowEnd;
 root.classList.toggle("lite", lite);
+root.classList.add("motion"); // CSS hidden states only apply once this script runs
 
 const $ = <T extends Element = HTMLElement>(sel: string, el: ParentNode = document) => el.querySelector<T>(sel);
 const $$ = <T extends Element = HTMLElement>(sel: string, el: ParentNode = document) => [...el.querySelectorAll<T>(sel)];
 
 const EASE = "expo.out";
-const ONCE = (trigger: Element, start = "top 85%") => ({ trigger, start, once: true });
-const HEADER_OFFSET = -72;
+const HEADER_OFFSET = 72;
 
+/* ---------- Scheduling helpers ---------- */
+
+// Run each task in its own idle slot (or a short timeout where unsupported)
+function idleChunks(tasks: Array<() => void>) {
+  const ric = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 16));
+  const next = () => {
+    const task = tasks.shift();
+    if (!task) return;
+    ric(() => { task(); next(); }, { timeout: 500 } as IdleRequestOptions);
+  };
+  next();
+}
+
+// Fire once when an element comes into view (bottom margin = how early)
+const viewObservers = new Map<string, IntersectionObserver>();
+function onView(el: Element, cb: () => void, margin = "0px 0px -12% 0px") {
+  let io = viewObservers.get(margin);
+  if (!io) {
+    io = new IntersectionObserver(entries => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        io!.unobserve(e.target);
+        (e.target as Element & { __onView?: () => void }).__onView?.();
+      }
+    }, { rootMargin: margin });
+    viewObservers.set(margin, io);
+  }
+  (el as Element & { __onView?: () => void }).__onView = cb;
+  io.observe(el);
+}
+
+/* ---------- Boot ---------- */
 let lenis: Lenis | null = null;
-
-headerState();
-activeNav();
-anchors();
-
-if (gentle) {
-  gentleMode();
-} else {
+if (!gentle && !lite) {
+  // Smooth wheel scrolling on desktop only; touch already has native momentum
   lenis = new Lenis({ autoRaf: false });
   lenis.on("scroll", ScrollTrigger.update);
   gsap.ticker.add(t => lenis!.raf(t * 1000));
   gsap.ticker.lagSmoothing(0);
-
-  heroIntro();
-  scrollScenes();
-  marquee();
-  if (finePointer) { magnetic(); cursor(); }
-  heroLight();
 }
 
-/* ---------- Reduced motion: content fades in, nothing moves ---------- */
-function gentleMode() {
+headerState();
+anchors();
+reveals();
+
+if (gentle) {
   root.classList.add("ready");
-  $$("[data-stat]").forEach(s => s.classList.add("is-in"));
-  $$("[data-reveal], [data-split], [data-stagger], [data-stat], [data-step], [data-showcase]").forEach(el => {
-    gsap.from(el, { autoAlpha: 0, duration: .8, ease: "power1.out", scrollTrigger: ONCE(el, "top 92%") });
-  });
+} else {
+  logoIntro().then(played => heroIntro(played));
+}
+
+idleChunks([
+  activeNav,
+  ...(gentle ? [] : [heroOut, marquee, expandSections, contactGlow, footerWord, howItWorks, caseShowcase]),
+  ...(finePointer && !gentle ? [magnetic, cursor] : []),
+]);
+
+/* ---------- Logo intro: the pillar rises, the sun rises, the mark flies home ----------
+   Once per session. Click or any key fast-forwards it. Resolves when the curtain
+   starts lifting, so the hero animates in underneath it. */
+function logoIntro(): Promise<boolean> {
+  const intro = $("[data-intro]");
+  const remove = () => { intro?.remove(); };
+  if (!intro || root.classList.contains("no-intro")) { remove(); return Promise.resolve(false); }
+
+  const mark = $<SVGElement>("[data-intro-mark]", intro)!;
+  const pillar = $("[data-intro-pillar]", intro)!;
+  const sun = $("[data-intro-sun]", intro)!;
+  const glow = $("[data-intro-glow]", intro)!;
+  const word = $("[data-intro-word]", intro)!;
+  const target = $(".brand svg");
+
+  intro.style.animation = "none"; // JS is alive: cancel the CSS failsafe
+  lenis?.stop();
+  try { sessionStorage.setItem("bl-intro", "1"); } catch {}
+
+  const fontsOrTimeout = Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 700))]);
+
+  return fontsOrTimeout.then(() => new Promise<boolean>(resolve => {
+    const chars = SplitText.create(word.children, { type: "chars" }).chars;
+    gsap.set([pillar, sun, glow, word], { opacity: 1 });
+
+    const tl = gsap.timeline({
+      defaults: { ease: "expo.out" },
+      onComplete: () => { remove(); lenis?.start(); off(); },
+    });
+
+    tl.fromTo(pillar, { scaleY: 0, transformOrigin: "50% 100%" }, { scaleY: 1, duration: .75, ease: "expo.inOut" })
+      .fromTo(sun, { y: 26, scale: .6, opacity: 0, transformOrigin: "50% 50%" }, { y: 0, scale: 1, opacity: 1, duration: 1 }, "-=.2")
+      .fromTo(glow, { scale: .2, opacity: 0, transformOrigin: "50% 50%" }, { scale: 1.6, opacity: 1, duration: 1.2, ease: "power2.out" }, "<")
+      .from(chars, { yPercent: 110, opacity: 0, duration: .7, stagger: .035 }, "-=.85")
+      .addLabel("fly", "+=.15");
+
+    // Fly the mark onto the header logo (FLIP), measured when the flight starts
+    tl.add(() => {
+      if (!target) return;
+      const a = mark.getBoundingClientRect();
+      const b = target.getBoundingClientRect();
+      gsap.to(mark, {
+        x: b.left + b.width / 2 - (a.left + a.width / 2),
+        y: b.top + b.height / 2 - (a.top + a.height / 2),
+        scale: b.width / a.width,
+        duration: .95 / tl.timeScale(),
+        ease: "expo.inOut",
+      });
+    }, "fly")
+      .to(glow, { opacity: 0, duration: .4, ease: "power2.in" }, "fly")
+      .to(word, { y: -14, opacity: 0, duration: .45, ease: "power2.in" }, "fly")
+      .call(() => resolve(true), [], "fly+=.45")
+      // The curtain lifts from the bottom, revealing the site under the flying mark
+      .to(intro, { clipPath: "inset(0% 0% 100% 0%)", duration: .9, ease: "expo.inOut" }, "fly+=.35");
+
+    // Impatient? Any click or key plays the rest at 4x
+    const skip = () => tl.timeScale(4);
+    const off = () => { removeEventListener("pointerdown", skip); removeEventListener("keydown", skip); };
+    addEventListener("pointerdown", skip, { once: true });
+    addEventListener("keydown", skip, { once: true });
+  }));
 }
 
 /* ---------- Header: gains depth, hides on the way down ---------- */
@@ -61,7 +156,9 @@ function headerState() {
   const header = $("[data-header]");
   if (!header) return;
   let lastY = scrollY;
+  let queued = false;
   const update = () => {
+    queued = false;
     const y = scrollY;
     header.classList.toggle("scrolled", y > 8);
     // Only change on real movement: Lenis can fire repeat events at the same y
@@ -69,7 +166,7 @@ function headerState() {
     header.classList.toggle("hide", !gentle && y > 400 && y > lastY);
     lastY = y;
   };
-  addEventListener("scroll", update, { passive: true });
+  addEventListener("scroll", () => { if (!queued) { queued = true; requestAnimationFrame(update); } }, { passive: true });
   update();
 }
 
@@ -100,22 +197,17 @@ function anchors() {
     e.preventDefault();
     history.replaceState(null, "", link.hash);
     const arrive = () => { if (link.hash === "#contacto") inviteToForm(); };
+    const dist = Math.abs(target.getBoundingClientRect().top);
+    const duration = gentle ? .8 : Math.min(2, Math.max(.9, dist / 2400));
 
     if (lenis) {
-      const dist = Math.abs(target.getBoundingClientRect().top);
-      lenis.scrollTo(target, {
-        // sections carry scroll-margin-top for the header, which Lenis already honours
-        offset: 0,
-        duration: Math.min(2.2, Math.max(1, dist / 2200)),
-        easing: expoInOut,
-        onComplete: arrive,
-      });
+      // sections carry scroll-margin-top for the header, which Lenis honours
+      lenis.scrollTo(target, { offset: 0, duration, easing: expoInOut, onComplete: arrive });
     } else {
-      // Reduced motion: still a glide, just shorter and calmer
       gsap.to(window, {
-        scrollTo: { y: target === document.body ? 0 : target, offsetY: -HEADER_OFFSET },
-        duration: .8,
-        ease: "power2.inOut",
+        scrollTo: { y: target === document.body ? 0 : target, offsetY: HEADER_OFFSET },
+        duration,
+        ease: gentle ? "power2.inOut" : "expo.inOut",
         onComplete: arrive,
       });
     }
@@ -133,19 +225,27 @@ function inviteToForm() {
   if (finePointer) first?.focus({ preventScroll: true });
 }
 
-/* ---------- Hero: the light rises, then the words ---------- */
-function heroIntro() {
+/* ---------- Hero: the words rise, the card tilts in ---------- */
+function heroIntro(afterLogo = false) {
   const title = $("[data-hero-title]");
   const ins = $$("[data-hero-in]");
   const demo = $("[data-hero-demo]");
 
-  document.fonts.ready.then(() => {
+  // Never wait on fonts for more than a moment: a slow/blocked font must not hold the hero back
+  const fontsOrTimeout = Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 600))]);
+
+  fontsOrTimeout.then(() => {
     const tl = gsap.timeline({ defaults: { ease: EASE }, onComplete: () => root.classList.add("ready") });
 
-    tl.from(".site-header .mark-sun", { y: 14, autoAlpha: 0, duration: 1.2, transformOrigin: "50% 50%" }, 0)
-      .from(".site-header .brand-word, .site-header .nav > *", { y: -12, autoAlpha: 0, duration: .8, stagger: .05 }, .1);
+    // After the logo intro the flying mark already landed with its sun
+    if (afterLogo) gsap.set(".site-header .mark-sun", { autoAlpha: 1 });
+    else tl.from(".site-header .mark-sun", { y: 14, autoAlpha: 0, duration: 1.2, transformOrigin: "50% 50%" }, 0);
+    tl.from(".site-header .brand-word, .site-header .nav > *", { y: -12, autoAlpha: 0, duration: .8, stagger: .05 }, .1);
 
     if (title) {
+      // The title's tween stands alone (not inside tl): when the window resizes,
+      // SplitText re-splits and reverts only this tween, never the whole hero.
+      let titleDone = false;
       SplitText.create(title, {
         type: "lines,words",
         mask: "lines",
@@ -153,9 +253,19 @@ function heroIntro() {
         autoSplit: true,
         onSplit(self) {
           gsap.set(title, { autoAlpha: 1 });
-          return tl.from(self.words, { yPercent: 110, rotate: 4, duration: 1.3, stagger: .06 }, .15);
+          if (titleDone) return;
+          return gsap.from(self.words, {
+            yPercent: 110, rotate: 4, duration: 1.3, stagger: .06, ease: EASE, delay: .15,
+            onComplete: () => { titleDone = true; },
+          });
         },
       });
+      // Safety net: whatever happens, the headline is readable within 3s
+      setTimeout(() => {
+        if (titleDone) return;
+        gsap.set(title, { autoAlpha: 1 });
+        gsap.to(title.querySelectorAll(".ln > *"), { yPercent: 0, rotate: 0, duration: .4, overwrite: true });
+      }, 3000);
     }
     tl.fromTo(ins, { y: 26, autoAlpha: 0 }, { y: 0, autoAlpha: 1, duration: 1.1, stagger: .12 }, .6);
     if (demo) {
@@ -164,89 +274,87 @@ function heroIntro() {
         { y: 0, autoAlpha: 1, rotateX: 0, scale: 1, duration: 1.6 }, .45);
     }
   });
-
-  // On the way out: copy lifts away faster than the card, the card sinks back (depth)
-  const hero = $("[data-hero]");
-  if (hero) {
-    gsap.timeline({ scrollTrigger: { trigger: hero, start: "top top", end: "bottom top", scrub: true } })
-      .to(".hero-copy", { yPercent: -22, autoAlpha: .15, ease: "none" }, 0)
-      .to("[data-hero-demo]", { yPercent: -8, scale: .94, ease: "none" }, 0)
-      .to("[data-scroll-cue]", { autoAlpha: 0, ease: "none", duration: .15 }, 0);
-  }
 }
 
-/* ---------- Scroll scenes ---------- */
-function scrollScenes() {
-  // Headings: lines rise out of a mask, with a slight tilt that settles
-  $$("[data-split]").forEach(el => {
+// On the way out: copy lifts away faster than the card, the card sinks back (depth)
+function heroOut() {
+  const hero = $("[data-hero]");
+  if (!hero) return;
+  gsap.timeline({ scrollTrigger: { trigger: hero, start: "top top", end: "bottom top", scrub: true } })
+    .to(".hero-copy", { yPercent: -22, autoAlpha: .15, ease: "none" }, 0)
+    .to("[data-hero-demo]", { yPercent: -8, scale: .94, ease: "none" }, 0)
+    .to("[data-scroll-cue]", { autoAlpha: 0, ease: "none", duration: .15 }, 0);
+}
+
+/* ---------- Reveals: JS only flips a class; the motion itself is CSS ---------- */
+function reveals() {
+  $$("[data-reveal], [data-stagger], [data-step]").forEach(el => onView(el, () => el.classList.add("is-in")));
+
+  // Headings are split into lines only when they're about to be seen
+  $$("[data-split]").forEach(el => onView(el, () => {
     SplitText.create(el, {
       type: "lines",
       mask: "lines",
       linesClass: "ln",
       autoSplit: true,
-      onSplit: self => gsap.from(self.lines, {
-        yPercent: 110, rotate: 2.5, transformOrigin: "0% 100%",
-        duration: 1.3, stagger: .1, ease: EASE, scrollTrigger: ONCE(el),
-      }),
+      onSplit: self => {
+        el.classList.add("split-ready");
+        if (gentle) return;
+        return gsap.from(self.lines, { yPercent: 110, rotate: 2.5, transformOrigin: "0% 100%", duration: 1.3, stagger: .1, ease: EASE });
+      },
     });
-  });
+  }, "0px 0px -8% 0px"));
 
-  $$("[data-reveal]").forEach(el => {
-    gsap.from(el, { y: 36, autoAlpha: 0, duration: 1.2, ease: EASE, scrollTrigger: ONCE(el, "top 90%") });
-  });
-
-  $$("[data-stagger]").forEach(el => {
-    gsap.from(el.children, { y: 32, autoAlpha: 0, duration: 1.1, stagger: .09, ease: EASE, scrollTrigger: ONCE(el, "top 88%") });
-  });
-
-  // Stats: rule draws (CSS, via .is-in) and the number counts up
+  // Stats: card rises and its rule draws (CSS), the number counts up
   $$("[data-stat]").forEach((stat, i) => {
     const num = $("[data-count]", stat)!;
     const target = Number(num.dataset.count);
-    const counter = { v: 0 };
-    num.textContent = "0%";
-    gsap.from(stat, { y: 40, autoAlpha: 0, duration: 1.2, delay: i * .12, ease: EASE, scrollTrigger: ONCE(stat) });
-    gsap.to(counter, {
-      v: target, duration: 1.8, delay: .2 + i * .12, ease: "power3.out",
-      onUpdate: () => { num.textContent = `${Math.round(counter.v)}%`; },
-      scrollTrigger: { ...ONCE(stat), onEnter: () => stat.classList.add("is-in") },
+    if (!gentle) num.textContent = "0%";
+    onView(stat, () => {
+      stat.classList.add("is-in");
+      if (gentle) return;
+      const counter = { v: 0 };
+      gsap.to(counter, {
+        v: target, duration: 1.8, delay: .2 + i * .12, ease: "power3.out",
+        onUpdate: () => { num.textContent = `${Math.round(counter.v)}%`; },
+      });
     });
   });
-
-  // Light sections open like a screen: a rounded card that expands to full bleed
-  if (!lite) {
-    $$("[data-expand]").forEach(section => {
-      gsap.fromTo(section,
-        { clipPath: "inset(0% 5% 0% 5% round 32px)" },
-        { clipPath: "inset(0% 0% 0% 0% round 0px)", ease: "none",
-          scrollTrigger: { trigger: section, start: "top bottom", end: "top 20%", scrub: .5 } });
-    });
-  }
-
-  // Contact: the gold glow swells as you arrive
-  const glow = $("[data-contact-glow]");
-  if (glow) {
-    gsap.fromTo(glow, { scale: .5, autoAlpha: 0 }, {
-      scale: 1, autoAlpha: 1, ease: "none",
-      scrollTrigger: { trigger: "[data-contact]", start: "top bottom", end: "top 20%", scrub: .6 },
-    });
-  }
-
-  // Footer: the wordmark rises letter by letter as the page ends
-  const word = $("[data-footer-word]");
-  if (word) {
-    const split = SplitText.create(word, { type: "chars" });
-    gsap.from(split.chars, {
-      yPercent: 100, ease: "none", stagger: .06,
-      scrollTrigger: { trigger: word, start: "top bottom", end: "bottom bottom", scrub: .6 },
-    });
-  }
-
-  howItWorks();
-  caseShowcase();
 }
 
-/* ---------- "Como funciona": pinned story on desktop, step-by-step on mobile ---------- */
+/* ---------- Light sections open like a screen (desktop) ---------- */
+function expandSections() {
+  if (lite) return;
+  $$("[data-expand]").forEach(section => {
+    gsap.fromTo(section,
+      { clipPath: "inset(0% 5% 0% 5% round 32px)" },
+      { clipPath: "inset(0% 0% 0% 0% round 0px)", ease: "none",
+        scrollTrigger: { trigger: section, start: "top bottom", end: "top 20%", scrub: .5 } });
+  });
+}
+
+/* ---------- Contact: the gold glow swells as you arrive ---------- */
+function contactGlow() {
+  const glow = $("[data-contact-glow]");
+  if (!glow) return;
+  gsap.fromTo(glow, { scale: .5, autoAlpha: 0 }, {
+    scale: 1, autoAlpha: 1, ease: "none",
+    scrollTrigger: { trigger: "[data-contact]", start: "top bottom", end: "top 20%", scrub: .6 },
+  });
+}
+
+/* ---------- Footer: the wordmark rises letter by letter as the page ends ---------- */
+function footerWord() {
+  const word = $("[data-footer-word]");
+  if (!word) return;
+  const split = SplitText.create(word, { type: "chars" });
+  gsap.from(split.chars, {
+    yPercent: 100, ease: "none", stagger: .06,
+    scrollTrigger: { trigger: word, start: "top bottom", end: "bottom bottom", scrub: .6 },
+  });
+}
+
+/* ---------- "Como funciona": pinned story on desktop, step-by-step elsewhere ---------- */
 function stepTimeline(step: HTMLElement) {
   const tl = gsap.timeline({ defaults: { ease: EASE } });
   const files = $$(".file", step);
@@ -276,6 +384,7 @@ function howItWorks() {
   const mm = gsap.matchMedia();
   mm.add("(min-width: 1024px) and (min-height: 720px)", () => {
     // Pin the section; scrolling plays the three steps in order
+    steps.forEach(s => s.classList.add("is-in"));
     const tl = gsap.timeline({
       defaults: { ease: "none" },
       scrollTrigger: { trigger: section, start: "top top", end: "+=180%", pin: true, scrub: .8, anticipatePin: 1 },
@@ -290,9 +399,8 @@ function howItWorks() {
   mm.add("(max-width: 1023px), (max-height: 719px)", () => {
     gsap.set(bar, { scaleX: 1 });
     steps.forEach(step => {
-      gsap.from(step, { y: 40, autoAlpha: 0, duration: 1.1, ease: EASE, scrollTrigger: ONCE(step) });
       const tl = stepTimeline(step).pause();
-      ScrollTrigger.create({ ...ONCE(step, "top 75%"), onEnter: () => { tl.play(); } });
+      onView(step, () => { step.classList.add("is-in"); tl.play(); });
     });
   });
 }
@@ -380,23 +488,4 @@ function cursor() {
   document.addEventListener("pointerenter", () => { if (shown) ring.classList.add("on"); });
   addEventListener("pointerdown", () => ring.classList.add("is-down"));
   addEventListener("pointerup", () => ring.classList.remove("is-down"));
-}
-
-/* ---------- WebGL hero light: capable desktops only, loaded when idle ---------- */
-function heroLight() {
-  const canvas = $<HTMLCanvasElement>("[data-hero-gl]");
-  const hero = $("[data-hero]");
-  if (!canvas || !hero || lite || !matchMedia("(min-width: 900px)").matches) return;
-
-  const idle = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 200));
-  idle(() => {
-    import("./gl").then(({ mountHeroGL }) => {
-      const gl = mountHeroGL(canvas, hero);
-      if (!gl) return;
-      ScrollTrigger.create({
-        trigger: hero, start: "top top", end: "bottom top",
-        onUpdate: self => gl.setScroll(self.progress),
-      });
-    });
-  });
 }
